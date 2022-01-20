@@ -1,62 +1,53 @@
 local awful = require("awful")
 local naughty = require("naughty")
 
-timers = { 5,10 }
+-- you can change this to your screenshot directory
+local base_path = os.getenv("HOME") .. "/Pictures/Screenshots/"
 
-function scrot_full()
-	local screenshot = "\"/home/zakhar/Pictures/scrot/" .. os.time() .. ".png\""
-    scrot("scrot " .. screenshot, scrot_callback, "Take a screenshot of entire screen\n" .. screenshot)
-	copy_screenshot(screenshot)
+local function get_filename()
+	return os.date("%Y-%m-%dT%H-%M-%S")
 end
 
-function scrot_selection()
-	local screenshot = "\"/home/zakhar/Pictures/scrot/" .. os.time() .. ".png\""
-    scrot("sleep 0.5 && scrot -s " .. screenshot, scrot_callback, "Take a screenshot of selection")
-    copy_screenshot(screenshot)
+function screenshot_full()
+	local path = base_path .. get_filename() .. ".png"
+	screenshot(path)
+
+	callback("Made screenshot of all screen(s)\nPath: " .. path, 5)
 end
 
-function scrot_window()
-	local screenshot = "\"/home/zakhar/Pictures/scrot/" .. os.time() .. ".png\""
-    scrot("scrot -u " .. screenshot, scrot_callback, "Take a screenshot of focused window")    
-    copy_screenshot(screenshot)
+function screenshot_active_window()
+	local path = base_path .. get_filename() .. ".png"
+	screenshot(path, "-i $(xdotool getactivewindow)")
+
+	callback("Made screenshot of active window\nPath: " .. path, 5)
 end
 
-function scrot_delay()
-    items={}
-    for key, value in ipairs(timers)  do
-        items[#items+1]={tostring(value) , "scrot -d ".. value.." " .. screenshot, "Take a screenshot of delay" }
-    end
-    awful.menu.new(
-    {
-        items = items
-    }
-    ):show({keygrabber= true})
-    scrot_callback()
+function screenshot_selection()
+	local path = base_path .. get_filename() .. ".png"
+	screenshot(path, "-s")
+
+	callback("Made screenshot of selected region\nPath: " .. path, 5)
 end
 
-function scrot(cmd , callback, args)
-    awful.util.spawn(cmd)
-    callback(args)
-end
 
-function copy_screenshot(path)
-	local command = "fish -c xclip -selection clipboard -t image/png -i " .. path
-	scrot_callback(command)
-
-	local results = {awful.spawn.spawn(command)}
-
-	local toPrint = ""
-
-	for k, v in pairs(results) do
-		toPrint = toPrint .. tostring(v) .. "\n"
+function screenshot(path, ...)
+	args = ""
+	-- add supplied args
+	for k, v in ipairs({...}) do
+		args = args .. v .. " "
 	end
 
-	scrot_callback(toPrint)
+	command = "maim " .. args .. path .. " && xclip -selection clipboard -t image/png " .. path
+
+	-- override default user's shell
+	awful.util.shell = "/bin/bash"
+	
+	awful.spawn.with_shell(command)
 end
 
-function scrot_callback(text)
+function callback(text, timeout)
     naughty.notify({
         text = text,
-        timeout = 20
+        timeout = timeout
     })
 end

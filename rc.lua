@@ -18,11 +18,10 @@ local hotkeys_popup = require("awful.hotkeys_popup")
 -- when client with a matching name is opened:
 require("awful.hotkeys_popup.keys")
 
--- for keyboard layout switching ( EN, RU, UA )
-local keyboard_layout = require("keyboard_layout")
-
 -- for screenshots
 local screenshot = require("screenshot")
+
+local vicious = require("vicious")
 
 do
 	local mpc = require("mpc")
@@ -144,7 +143,8 @@ mymainmenu = awful.menu({ items = { { "awesome", myawesomemenu, beautiful.awesom
                                     { "open terminal", terminal },
                                     { "open browser", "firefox-bin", "/usr/share/pixmaps/firefox-bin.png" },
                                     { "poweroff", "poweroff" },
-				    { "suspend",  "systemctl suspend" },
+                                    { "reboot", "systemctl reboot" },
+				    				{ "suspend",  "systemctl suspend" },
                                   }
                         })
 
@@ -172,7 +172,7 @@ mytextclock = wibox.widget.textclock("%Y %d.%m, %H:%M:%S", 1)
 
 mygraph = wibox.widget {
 		{
-			text = "Temp: ",
+			text = "Updating",
 			widget = wibox.widget.textbox,
 
 			id = "textbox",
@@ -204,7 +204,7 @@ mygraph = wibox.widget {
 }
 
 gears.timer({
-	timeout = 1,
+	timeout = 4,
 	call_now = true,
 	autostart = true,
 
@@ -216,17 +216,9 @@ gears.timer({
 		local num = tonumber(content) / 1000
 
 		-- mygraph.graph.widget:add_value( num ) 
-		mygraph.textbox.text = tostring( num ) .. "*C"
+		mygraph.textbox.text = "CPU " .. tostring( num ) .. "*C"
 	end,
 })
-
-local kbdcfg = keyboard_layout.kbdcfg({type = "tui"})
-
-kbdcfg.add_primary_layout("English", "US", "us")
-kbdcfg.add_primary_layout("Русский", "RU", "ru")
-kbdcfg.add_primary_layout("Украинский", "UA", "ua")
-
-kbdcfg.bind()
 
 -- Create a wibox for each screen and add it
 local taglist_buttons = gears.table.join(
@@ -316,8 +308,8 @@ awful.screen.connect_for_each_screen(function(s)
 
 		style = {
 			shape_border_width = 1,
-			shape_border_color = '#eeeeee',
-			shape = gears.shape.rounded_bar,
+			shape_border_color = '#777777',
+			shape = gears.shape.rectangle,
 		},
 
 		layout = {
@@ -333,10 +325,16 @@ awful.screen.connect_for_each_screen(function(s)
     local lsep = wibox.widget.textbox("[ ")
 
     -- middle separator
-    local msep = wibox.widget.textbox(" ][ ")
+    local msep = wibox.widget.textbox(" ] [ ")
 
     -- right separator
     local rsep = wibox.widget.textbox(" ]")
+    
+    -- Create wibox with batwidget
+    local battery_widget = wibox.widget.textbox()
+    
+    -- Register battery widget
+    vicious.register(battery_widget, vicious.widgets.bat, "B $2%", 31, "BAT0")
 
     -- Add widgets to the wibox
     s.mywibox:setup {
@@ -359,18 +357,21 @@ awful.screen.connect_for_each_screen(function(s)
 			
 	        wibox.widget.systray(),
 	        msep,
-			 
+		    			
+		    mpd_widget,
+		    msep,
+
+			awful.widget.keyboardlayout:new(),
+		    msep,
+
 		    mygraph,
 			msep,
-		    
+
+			battery_widget,
+		    msep,
+
 	        mytextclock,
-	        msep,
-	        
-		    kbdcfg.widget,
-			msep,
-			
-		    mpd_widget,
-		    rsep,
+	        rsep,
 			
 			s.mylayoutbox,	
 		},
@@ -498,12 +499,6 @@ globalkeys = gears.table.join(
     awful.key({modkey}, "F8", function () awful.util.spawn( "mpc prev" ) end),
     awful.key({modkey}, "F7", function () awful.util.spawn( "mpc toggle" ) end),
 
-    -- Keyboard layout switching ( e.g. from English to russian etc. )
-    -- Use Shift+Alt to switch
-    awful.key({"Shift"}, "Alt_L", function() kbdcfg.switch_next() end),
-    -- Alt+Shift
-    awful.key({"Mod1"}, "Shift_L", function() kbdcfg.switch_next() end),
-
     awful.key({"Mod4"}, "y", function() naughty.notify({ preset = naughty.config.presets.critical, title = "Fisting ass!", text = "Go suck some dick!" }) end,
     	      { description = "Turn your entire house into a dungeon", group = "dungeon"}),
 
@@ -514,11 +509,15 @@ globalkeys = gears.table.join(
         awful.util.spawn("xbacklight -inc 15") end),
 
     -- screenshots
-    awful.key({ }, "Print", scrot_full, {description = "Take a screenshot of entire screen", group = "screenshot"}),
-    awful.key({ modkey }, "Print", scrot_selection, {description = "Take a screenshot of selection", group = "screenshot"}),
-    awful.key({ "Shift" }, "Print", scrot_window, {description = "Take a screenshot of active window", group = "screenshot"})
-)
+	awful.key({ }, "Print", function() screenshot_full() end,
+	{description = "Make screenshot of entire screen", group = "screenshot"}),
 
+	awful.key({ modkey }, "Print", function() screenshot_active_window() end,
+	{description = "Make screenshot of currently active window", group = "screenshot"}),
+
+	awful.key({ "Shift" }, "Print", function() screenshot_selection() end,
+	{description = "Make screenshot of selected region", group = "screenshot"})
+)
 
 clientkeys = gears.table.join(
     awful.key({ modkey,           }, "f",
