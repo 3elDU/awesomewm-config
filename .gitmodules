@@ -1,0 +1,6 @@
+[submodule "vicious"]
+	path = vicious
+	url = https://github.com/vicious-widgets/vicious.git
+[submodule "keyboard_layout"]
+	path = keyboard_layout
+	url = https://github.com/echuraev/keyboard_layout.git
